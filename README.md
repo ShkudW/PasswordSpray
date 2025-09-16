@@ -1,5 +1,5 @@
 # PasswordSpray
-This was built as a reference to the excellent DomainPasswordSpray tool -> https://github.com/dafthack/DomainPasswordSpray
+This Tool was built as a reference to the excellent DomainPasswordSpray tool -> https://github.com/dafthack/DomainPasswordSpray
 I love the logic in that code, but for example the tool didn’t work for me when I used it with a Kerberos ticket on my workstation.
 And a few other small, annoying things that ended up requiring me to change things in the code every time.
 
