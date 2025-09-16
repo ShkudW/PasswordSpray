@@ -13,3 +13,8 @@ Here are some things you should know about this tool:
 4. The tool skips accounts that are currently locked out and also skips accounts that are about to be locked (by reading their badPwdCount attribute).
 5. Be careful running this in production environments.
 6. Enjoy.
+
+```powershell
+Import-Module .\passwordspray.ps1
+PasswordSpray -Domain godfather.locak -Password '1qaz!QAZ'
+```
