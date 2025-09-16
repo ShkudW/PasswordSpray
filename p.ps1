@@ -2,8 +2,7 @@ function PasswordSpray {
     [CmdletBinding()]
     param(
         [string]$Domain, 
-        [string]$Password,
-		[switch]$Justsuccess
+        [string]$Password
 		
     )
 
@@ -271,9 +270,6 @@ function PasswordSpray {
 		}
 		else {
 			$failCount++
-			if (-not $Justsuccess) {
-				Write-Host "[-] Not this time for $($u.SamAccountName) " -ForegroundColor DarkRed
-			}
 		}
 
 		Update-ProgressView -IdxNow $idx -CurrentSam $u.SamAccountName
