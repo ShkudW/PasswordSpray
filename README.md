@@ -15,7 +15,7 @@ Here are some things you should know about this tool:
 6. Enjoy.
 
 ```powershell
-Import-Module .\passwordspray.ps1
+Import-Module .\PasswordSpray.ps1
 
 PasswordSpray -Domain godfather.local -Password '1qaz!QAZ'
 ```
