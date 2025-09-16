@@ -17,5 +17,5 @@ Here are some things you should know about this tool:
 ```powershell
 Import-Module .\passwordspray.ps1
 
-PasswordSpray -Domain godfather.locak -Password '1qaz!QAZ'
+PasswordSpray -Domain godfather.local -Password '1qaz!QAZ'
 ```
